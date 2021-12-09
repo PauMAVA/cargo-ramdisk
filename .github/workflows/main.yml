@@ -1,0 +1,23 @@
+name: main
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - name: Check code is formatted to meet rust formatting standards
+        run: cargo fmt -- --check
+      - name: Build
+        run: cargo build
+      - name: Test
+        run: cargo test

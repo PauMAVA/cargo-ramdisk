@@ -8,7 +8,6 @@ use structopt::StructOpt;
     about = "Create target folder as a ramdisk for faster Rust compilation."
 )]
 pub struct CargoRamdiskConfig {
-
     /// The mount type to use. tmpfs, ramfs
     #[structopt(default_value = "tmpfs", long = "fs")]
     pub fs: MountType,
@@ -26,7 +25,7 @@ pub struct CargoRamdiskConfig {
     pub fstab_location: PathBuf,
 
     #[structopt(subcommand)]
-    pub subcommand: Option<Subcommands>
+    pub subcommand: Option<Subcommands>,
 }
 
 #[derive(Debug)]
@@ -55,7 +54,6 @@ pub struct MountConfig {
 }
 
 impl From<CargoRamdiskConfig> for MountConfig {
-
     fn from(conf: CargoRamdiskConfig) -> Self {
         Self {
             fs: conf.fs,
@@ -104,7 +102,10 @@ impl FromStr for MountType {
         match &*str.to_lowercase() {
             "tmpfs" => Ok(Self::Tmpfs),
             "ramfs" => Ok(Self::Ramfs),
-            _ => Err(format!("Unknown fs type {}! Expected either `tmpfs` or `ramfs`", str)),
+            _ => Err(format!(
+                "Unknown fs type {}! Expected either `tmpfs` or `ramfs`",
+                str
+            )),
         }
     }
 }

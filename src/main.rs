@@ -2,8 +2,8 @@ extern crate structopt;
 
 mod config;
 
+use config::{CargoRamdiskConfig, MountConfig, RemountConfig, Subcommands, UnmountConfig};
 use structopt::StructOpt;
-use config::{CargoRamdiskConfig, MountConfig, RemountConfig, UnmountConfig, Subcommands};
 
 fn main() {
     let config = CargoRamdiskConfig::from_args();
@@ -18,14 +18,8 @@ fn main() {
     }
 }
 
-fn mount(_config: MountConfig) {
+fn mount(_config: MountConfig) {}
 
-}
+fn remount(_config: RemountConfig) {}
 
-fn remount(_config: RemountConfig) {
-
-}
-
-fn unmount(_config: UnmountConfig) {
-
-}
+fn unmount(_config: UnmountConfig) {}
