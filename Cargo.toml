@@ -10,3 +10,6 @@ license = "MIT"
 [dependencies]
 structopt = "0.3"
 sys-mount = "1.3.0"
+nanoid = "0.4.0"
+
+carlog = "0.1.0"

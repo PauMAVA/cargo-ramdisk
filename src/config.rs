@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 use structopt::StructOpt;
+use sys_mount::FilesystemType;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -28,10 +29,19 @@ pub struct CargoRamdiskConfig {
     pub subcommand: Option<Subcommands>,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum MountType {
     Tmpfs,
     Ramfs,
+}
+
+impl<'a> Into<FilesystemType<'a>> for MountType {
+    fn into(self) -> FilesystemType<'a> {
+        match self {
+            Self::Tmpfs => FilesystemType::from("tmpfs"),
+            Self::Ramfs => FilesystemType::from("ramfs"),
+        }
+    }
 }
 
 #[derive(Debug, StructOpt)]
@@ -41,16 +51,8 @@ pub struct MountConfig {
     pub fs: MountType,
 
     /// The path to the target folder where compilation output is written
-    #[structopt(default_value = "target/", short, long)]
+    #[structopt(default_value = "./target", short, long)]
     pub target: PathBuf,
-
-    /// Save the mount info into fstab
-    #[structopt(short = "s", long = "save-fstab")]
-    pub save_fstab: bool,
-
-    /// Path to the fstab file
-    #[structopt(default_value = "/etc/fstab", long = "fstab-location")]
-    pub fstab_location: PathBuf,
 }
 
 impl From<CargoRamdiskConfig> for MountConfig {
@@ -58,8 +60,15 @@ impl From<CargoRamdiskConfig> for MountConfig {
         Self {
             fs: conf.fs,
             target: conf.target,
-            save_fstab: conf.save_fstab,
-            fstab_location: conf.fstab_location,
+        }
+    }
+}
+
+impl From<&RemountConfig> for MountConfig {
+    fn from(config: &RemountConfig) -> Self {
+        Self {
+            fs: config.fs.clone(),
+            target: config.target.clone(),
         }
     }
 }
@@ -71,15 +80,23 @@ pub struct RemountConfig {
     pub fs: MountType,
 
     /// The path to the target folder where compilation output is written
-    #[structopt(default_value = "target/", short, long)]
+    #[structopt(default_value = "target", short, long)]
     pub target: PathBuf,
 }
 
 #[derive(Debug, StructOpt)]
 pub struct UnmountConfig {
     /// The path to the target folder where compilation output is written
-    #[structopt(default_value = "target/", short, long)]
+    #[structopt(default_value = "target", short, long)]
     pub target: PathBuf,
+}
+
+impl From<&RemountConfig> for UnmountConfig {
+    fn from(config: &RemountConfig) -> Self {
+        Self {
+            target: config.target.clone(),
+        }
+    }
 }
 
 #[derive(Debug, StructOpt)]
