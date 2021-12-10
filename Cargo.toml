@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Pau Machetti Vallverdú <paumachetti@gmail.com>"]
 license = "MIT"
+description = "Create target folder as a ramdisk for faster Rust compilation"
+repository = "https://github.com/PauMAVA/cargo-ramdisk"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
