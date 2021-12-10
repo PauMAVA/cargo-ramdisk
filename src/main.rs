@@ -8,7 +8,6 @@ use carlog::prelude::*;
 
 mod config;
 
-use crate::config::MountType;
 use carlog::{carlog_ok, carlog_warning};
 use config::{CargoRamdiskConfig, MountConfig, RemountConfig, Subcommands, UnmountConfig};
 use nanoid::nanoid;
@@ -75,23 +74,24 @@ fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool
 
 pub fn mount(config: MountConfig) -> Result<()> {
     carlog_info!("Mounting", format!("Trying to mount {:?}", &config.target));
-    if config.fs == MountType::Tmpfs {
-        let target = normalize_path(config.target);
-        let (shm, target, _, linked) = prepare_tmpfs_path(target)?;
-        if !linked {
-            symlink(&shm, &target)?;
-            carlog_ok!("Linked", format!("⛓ {:?} -> {:?}", shm, target));
-        }
-        carlog_ok!(
-            "Success",
-            format!("✅ Successfully created tmpfs ramdisk at {:?}", target)
-        );
+    let target = normalize_path(config.target);
+    let (shm, target, _, linked) = prepare_tmpfs_path(target)?;
+    if !linked {
+        symlink(&shm, &target)?;
+        carlog_ok!("Linked", format!("⛓ {:?} -> {:?}", shm, target));
     }
+    carlog_ok!(
+        "Success",
+        format!("✅ Successfully created tmpfs ramdisk at {:?}", target)
+    );
     Ok(())
 }
 
 pub fn remount(config: RemountConfig) -> Result<()> {
-    carlog_info!("Remounting", format!("Trying to remount {:?}", &config.target));
+    carlog_info!(
+        "Remounting",
+        format!("Trying to remount {:?}", &config.target)
+    );
     unmount(UnmountConfig::from(&config))?;
     carlog_ok!("Unmounted", format!("{:?}", &config.target));
     mount(MountConfig::from(&config))?;
@@ -100,7 +100,10 @@ pub fn remount(config: RemountConfig) -> Result<()> {
 }
 
 pub fn unmount(config: UnmountConfig) -> Result<()> {
-    carlog_info!("Unmounting", format!("Trying to unmount {:?}", &config.target));
+    carlog_info!(
+        "Unmounting",
+        format!("Trying to unmount {:?}", &config.target)
+    );
     let mut target = normalize_path(config.target);
     if target.is_relative() {
         target = current_dir()?.join(target);
@@ -146,9 +149,11 @@ fn normalize_path(path: PathBuf) -> PathBuf {
 
 #[cfg(test)]
 mod test {
-    use crate::{mount, unmount, MountConfig, MountType, UnmountConfig, BASE_RAMDISK_FOLDER};
+    use crate::{
+        mount, remount, unmount, MountConfig, RemountConfig, UnmountConfig, BASE_RAMDISK_FOLDER,
+    };
     use std::env::temp_dir;
-    use std::fs::{read_link, remove_dir_all};
+    use std::fs::remove_dir_all;
 
     #[test]
     fn test_tmpfs() {
@@ -157,10 +162,18 @@ mod test {
             remove_dir_all(target.clone()).expect("Failed to delete previous test target dir...");
         }
         mount(MountConfig {
-            fs: MountType::Tmpfs,
             target: target.clone(),
         })
         .expect("Failed to mount test tmpfs...");
+        assert!(target.exists());
+        let link = target.read_link();
+        assert!(link.is_ok());
+        let link = link.unwrap();
+        assert!(link.starts_with(BASE_RAMDISK_FOLDER));
+        remount(RemountConfig {
+            target: target.clone(),
+        })
+        .expect("Failed to remount test tmpfs");
         assert!(target.exists());
         let link = target.read_link();
         assert!(link.is_ok());
