@@ -12,6 +12,7 @@ use carlog::{carlog_ok, carlog_warning};
 use config::{CargoRamdiskConfig, MountConfig, RemountConfig, Subcommands, UnmountConfig};
 use nanoid::nanoid;
 use std::env::current_dir;
+use std::env;
 use std::fs::{create_dir, read_link, remove_dir_all};
 use std::io::Result;
 use std::os::unix::fs::symlink;
@@ -22,7 +23,14 @@ use structopt::StructOpt;
 const BASE_RAMDISK_FOLDER: &str = "/dev/shm";
 
 fn main() -> Result<()> {
-    let config = CargoRamdiskConfig::from_args();
+    let mut args = env::args().peekable();
+    let _bin = args.next().expect("No program name...");
+    if let Some(s) = args.peek() {
+        if s.to_lowercase() == "ramdisk" {
+            args.next().unwrap();
+        }
+    }
+    let config = CargoRamdiskConfig::from_iter(args);
     if let Some(subcommand) = config.subcommand {
         match subcommand {
             Subcommands::Mount(config) => mount(config),
