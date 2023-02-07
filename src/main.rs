@@ -13,7 +13,7 @@ use config::{CargoRamdiskConfig, MountConfig, RemountConfig, Subcommands, Unmoun
 use nanoid::nanoid;
 use std::env;
 use std::env::current_dir;
-use std::fs::{create_dir, read_link, remove_dir_all};
+use std::fs::{create_dir, read_link, remove_dir_all, remove_file};
 use std::io::Result;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
@@ -59,8 +59,15 @@ fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool
     let shm_path = PathBuf::from(format!("{}/target{}", BASE_RAMDISK_FOLDER, &shm_path_id));
     if let Ok(real_path) = read_link(target_path.clone()) {
         if real_path.starts_with(BASE_RAMDISK_FOLDER) {
-            carlog_ok!("Preprocessed", "⛓ The target path is already a symlink to a tmpfs folder. Changing target tmpfs path...");
-            return Ok((real_path, target_path, shm_path_id, true));
+            if real_path.exists() {
+                carlog_ok!("Preprocessed", "⛓ The target path is already a symlink to a tmpfs folder. Changing target tmpfs path...");
+                return Ok((real_path, target_path, shm_path_id, true));
+            } else {
+                carlog_warning!(
+                    "The target path was already a symlink to a non-existent tmpfs folder. Unlinking"
+                );
+                remove_file(target_path.clone())?;
+            }
         } else {
             carlog_warning!("The target path was linked to a non-tmpfs filesystem...");
         }
