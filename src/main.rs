@@ -80,11 +80,22 @@ fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool
         create_dir(shm_path.clone())?;
         carlog_ok!("Created", format!("{:?}", &shm_path));
         if target_path.exists() {
-            remove_dir_all(target_path.clone())?;
-            carlog_ok!("Deleted", format!("🗑 {:?}", &target_path));
+            match remove_dir_all(target_path.clone()) {
+                Ok(_) => {
+                    carlog_ok!("Deleted", format!("🗑 {:?}", &target_path));
+                }
+                Err(e) => {
+                    carlog_error!(&format!(
+                        "Failed to delete target path {:?}. Error: {}",
+                        &target_path, e
+                    ));
+                    remove_dir_all(&shm_path)?;
+                    exit(1);
+                }
+            }
         }
     }
-    Ok((shm_path.clone(), target_path.clone(), shm_path_id, false))
+    Ok((shm_path, target_path, shm_path_id, false))
 }
 
 pub fn mount(config: MountConfig) -> Result<()> {
@@ -92,8 +103,19 @@ pub fn mount(config: MountConfig) -> Result<()> {
     let target = normalize_path(config.target);
     let (shm, target, _, linked) = prepare_tmpfs_path(target)?;
     if !linked {
-        symlink(&shm, &target)?;
-        carlog_ok!("Linked", format!("⛓ {:?} -> {:?}", shm, target));
+        match symlink(&shm, &target) {
+            Ok(_) => {
+                carlog_ok!("Linked", format!("⛓ {:?} -> {:?}", shm, target));
+            }
+            Err(e) => {
+                carlog_error!(&format!(
+                    "Failed to create symlink: {:?} -> {:?}. Error: {}",
+                    &shm, &target, e
+                ));
+                remove_dir_all(&shm)?;
+                exit(1);
+            }
+        }
     }
     carlog_ok!(
         "Success",
@@ -131,6 +153,32 @@ pub fn unmount(config: UnmountConfig) -> Result<()> {
         if link.starts_with(BASE_RAMDISK_FOLDER) {
             remove_dir_all(&target)?;
             carlog_ok!("Unlinked", format!("{:?} ⛔ {:?}", &link, &target));
+
+            if config.copy_back {
+                // Here we copy back the data from the ramdisk to the original target path
+                // We use the cp command because it preserves the file timestamps
+                // This is important because cargo uses the file timestamps to determine if a file has changed
+                // std::fs::copy does not preserve timestamps, so we use the cp command instead
+                match std::process::Command::new("cp")
+                    .arg("-r")
+                    .arg("--preserve=mode,ownership,timestamps")
+                    .arg(&link)
+                    .arg(&target)
+                    .output()
+                {
+                    Ok(_) => {
+                        carlog_ok!("Copied back", format!("📁 {:?} -> {:?}", &link, &target));
+                    }
+                    Err(e) => {
+                        carlog_error!(&format!(
+                            "Failed to copy back data from ramdisk. Error: {}",
+                            e
+                        ));
+                        exit(1);
+                    }
+                };
+            }
+
             remove_dir_all(&link)?;
             carlog_ok!("Deleted", format!("🗑 {:?}", &link));
             carlog_ok!(
@@ -155,7 +203,7 @@ fn normalize_path(path: PathBuf) -> PathBuf {
                 return PathBuf::from(chars.as_str());
             }
         }
-        return path;
+        path
     } else {
         carlog_error!("Cannot normalize invalid UTF-8 path!");
         exit(1);
@@ -196,6 +244,7 @@ mod test {
         assert!(link.starts_with(BASE_RAMDISK_FOLDER));
         unmount(UnmountConfig {
             target: target.clone(),
+            copy_back: false,
         })
         .expect("Failed to unmount test tmpfs");
         assert!(!target.exists());
