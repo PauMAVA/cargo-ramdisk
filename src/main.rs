@@ -13,7 +13,7 @@ use config::{CargoRamdiskConfig, MountConfig, RemountConfig, Subcommands, Unmoun
 use nanoid::nanoid;
 use std::env;
 use std::env::current_dir;
-use std::fs::{create_dir, read_link, remove_dir_all, remove_file};
+use std::fs::{create_dir, read_link, remove_dir, remove_dir_all, remove_file};
 use std::io::Result;
 use std::os::unix::fs::symlink;
 use std::path::PathBuf;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool)> {
+fn prepare_tmpfs_path(target: PathBuf, copy_to: bool) -> Result<(PathBuf, PathBuf, String, bool)> {
     let mut target_path = target;
     if target_path.is_relative() {
         target_path = current_dir()?.join(target_path);
@@ -80,6 +80,36 @@ fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool
         create_dir(shm_path.clone())?;
         carlog_ok!("Created", format!("{:?}", &shm_path));
         if target_path.exists() {
+            if copy_to {
+                carlog_ok!(
+                    "Copying",
+                    format!("📁 {:?} -> {:?}", &target_path, &shm_path)
+                );
+                remove_dir(&shm_path)?;
+                match std::process::Command::new("cp")
+                    .arg("-r")
+                    .arg("--preserve=mode,ownership,timestamps")
+                    .arg(&target_path)
+                    .arg(&shm_path)
+                    .output()
+                {
+                    Ok(_) => {
+                        carlog_ok!(
+                            "Copied",
+                            format!("📁 {:?} -> {:?}", &target_path, &shm_path)
+                        );
+                    }
+                    Err(e) => {
+                        carlog_error!(&format!(
+                            "Failed to copy target path {:?} to tmpfs path {:?}. Error: {}",
+                            &target_path, &shm_path, e
+                        ));
+                        remove_dir_all(&shm_path)?;
+                        exit(1);
+                    }
+                }
+            }
+            carlog_ok!("Deleting", format!("🗑 {:?}", &target_path));
             match remove_dir_all(target_path.clone()) {
                 Ok(_) => {
                     carlog_ok!("Deleted", format!("🗑 {:?}", &target_path));
@@ -101,7 +131,7 @@ fn prepare_tmpfs_path(target: PathBuf) -> Result<(PathBuf, PathBuf, String, bool
 pub fn mount(config: MountConfig) -> Result<()> {
     carlog_info!("Mounting", format!("Trying to mount {:?}", &config.target));
     let target = normalize_path(config.target);
-    let (shm, target, _, linked) = prepare_tmpfs_path(target)?;
+    let (shm, target, _, linked) = prepare_tmpfs_path(target, config.copy_to)?;
     if !linked {
         match symlink(&shm, &target) {
             Ok(_) => {
@@ -226,6 +256,7 @@ mod test {
         }
         mount(MountConfig {
             target: target.clone(),
+            copy_to: false,
         })
         .expect("Failed to mount test tmpfs...");
         assert!(target.exists());
