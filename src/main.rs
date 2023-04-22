@@ -81,7 +81,7 @@ fn prepare_tmpfs_path(target: PathBuf, copy_to: bool) -> Result<(PathBuf, PathBu
         carlog_ok!("Created", format!("{:?}", &shm_path));
         if target_path.exists() {
             if copy_to {
-                carlog_ok!(
+                carlog_info!(
                     "Copying",
                     format!("📁 {:?} -> {:?}", &target_path, &shm_path)
                 );
@@ -185,6 +185,8 @@ pub fn unmount(config: UnmountConfig) -> Result<()> {
             carlog_ok!("Unlinked", format!("{:?} ⛔ {:?}", &link, &target));
 
             if config.copy_back {
+                carlog_info!("Copying", "⏳ Start copying back. This may take a while...");
+
                 // Here we copy back the data from the ramdisk to the original target path
                 // We use the cp command because it preserves the file timestamps
                 // This is important because cargo uses the file timestamps to determine if a file has changed
@@ -279,5 +281,59 @@ mod test {
         })
         .expect("Failed to unmount test tmpfs");
         assert!(!target.exists());
+    }
+
+    #[test]
+    fn test_copy_back() {
+        let target = temp_dir().join("target");
+        if target.exists() {
+            remove_dir_all(target.clone()).expect("Failed to delete previous test target dir...");
+        }
+
+        // Create a test file
+        std::fs::create_dir(target.clone()).expect("Failed to create test dir");
+        std::fs::write(target.join("test.txt"), "test").expect("Failed to create test file");
+
+        // Get the original timestamp
+        let original_timestamp = std::fs::metadata(target.join("test.txt")).unwrap().modified().unwrap();
+
+        // Mount with copy_to
+        let mntcfg = MountConfig {
+            target: target.clone(),
+            copy_to: true,
+        };
+
+        mount(mntcfg).expect("Failed to mount test tmpfs...");
+        assert!(target.exists());
+        let link = target.read_link();
+        assert!(link.is_ok());
+        let link = link.unwrap();
+        assert!(link.starts_with(BASE_RAMDISK_FOLDER));
+
+        // Check that the timestamp is the same
+        let copied_timestamp = std::fs::metadata(link.join("test.txt")).unwrap().modified().unwrap();
+        assert_eq!(original_timestamp, copied_timestamp);
+
+        // Modify the test file
+        std::thread::sleep(std::time::Duration::from_millis(10)); // Sleep to make sure the timestamp changes
+        std::fs::write(link.join("test.txt"), "test2").expect("Failed to write to test file");
+
+        let modified_timestamp = std::fs::metadata(link.join("test.txt")).unwrap().modified().unwrap();
+        assert_ne!(original_timestamp, modified_timestamp);
+
+        // Unmount with copy_back
+        unmount(UnmountConfig {
+            target: target.clone(),
+            copy_back: true,
+        }).expect("Failed to unmount test tmpfs");
+
+        assert!(!link.exists());
+        assert!(target.exists());
+
+        let copied_back_timestamp = std::fs::metadata(target.join("test.txt")).unwrap().modified().unwrap();
+        assert_eq!(modified_timestamp, copied_back_timestamp);
+
+        // Cleanup
+        remove_dir_all(target).expect("Failed to delete previous test target dir...");
     }
 }
