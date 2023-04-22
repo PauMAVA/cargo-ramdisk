@@ -295,7 +295,10 @@ mod test {
         std::fs::write(target.join("test.txt"), "test").expect("Failed to create test file");
 
         // Get the original timestamp
-        let original_timestamp = std::fs::metadata(target.join("test.txt")).unwrap().modified().unwrap();
+        let original_timestamp = std::fs::metadata(target.join("test.txt"))
+            .unwrap()
+            .modified()
+            .unwrap();
 
         // Mount with copy_to
         let mntcfg = MountConfig {
@@ -311,26 +314,36 @@ mod test {
         assert!(link.starts_with(BASE_RAMDISK_FOLDER));
 
         // Check that the timestamp is the same
-        let copied_timestamp = std::fs::metadata(link.join("test.txt")).unwrap().modified().unwrap();
+        let copied_timestamp = std::fs::metadata(link.join("test.txt"))
+            .unwrap()
+            .modified()
+            .unwrap();
         assert_eq!(original_timestamp, copied_timestamp);
 
         // Modify the test file
         std::thread::sleep(std::time::Duration::from_millis(10)); // Sleep to make sure the timestamp changes
         std::fs::write(link.join("test.txt"), "test2").expect("Failed to write to test file");
 
-        let modified_timestamp = std::fs::metadata(link.join("test.txt")).unwrap().modified().unwrap();
+        let modified_timestamp = std::fs::metadata(link.join("test.txt"))
+            .unwrap()
+            .modified()
+            .unwrap();
         assert_ne!(original_timestamp, modified_timestamp);
 
         // Unmount with copy_back
         unmount(UnmountConfig {
             target: target.clone(),
             copy_back: true,
-        }).expect("Failed to unmount test tmpfs");
+        })
+        .expect("Failed to unmount test tmpfs");
 
         assert!(!link.exists());
         assert!(target.exists());
 
-        let copied_back_timestamp = std::fs::metadata(target.join("test.txt")).unwrap().modified().unwrap();
+        let copied_back_timestamp = std::fs::metadata(target.join("test.txt"))
+            .unwrap()
+            .modified()
+            .unwrap();
         assert_eq!(modified_timestamp, copied_back_timestamp);
 
         // Cleanup
