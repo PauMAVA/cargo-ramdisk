@@ -22,12 +22,17 @@ pub struct MountConfig {
     /// The path to the target folder where compilation output is written
     #[structopt(default_value = "./target", short, long)]
     pub target: PathBuf,
+
+    /// Copy the contents of the target folder to the ramdisk
+    #[structopt(short, long)]
+    pub copy_to: bool,
 }
 
 impl From<CargoRamdiskConfig> for MountConfig {
     fn from(conf: CargoRamdiskConfig) -> Self {
         Self {
             target: conf.target,
+            copy_to: false,
         }
     }
 }
@@ -36,6 +41,7 @@ impl From<&RemountConfig> for MountConfig {
     fn from(config: &RemountConfig) -> Self {
         Self {
             target: config.target.clone(),
+            copy_to: false,
         }
     }
 }
@@ -52,12 +58,17 @@ pub struct UnmountConfig {
     /// The path to the target folder where compilation output is written
     #[structopt(default_value = "target", short, long)]
     pub target: PathBuf,
+
+    /// Copy back the contents of the ramdisk to the target folder
+    #[structopt(short, long)]
+    pub copy_back: bool,
 }
 
 impl From<&RemountConfig> for UnmountConfig {
     fn from(config: &RemountConfig) -> Self {
         Self {
             target: config.target.clone(),
+            copy_back: false,
         }
     }
 }
