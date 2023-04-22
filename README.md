@@ -27,3 +27,55 @@ SUBCOMMANDS:
     remount    Remount an existing ramdisk
     unmount    Unmount an existing ramdisk
 ```
+#### Copying data back to disk
+In order to copy data back to disk you can use the flag `-c` or `--copy-to` in the `mount` and `unmount` subcommands.
+
+#### Sub-commands usage
+Cargo ramdisk has three main subcommands for its operation each one with its options and flags.
+
+##### mount
+```
+Mount a ramdisk, same as not specifying a subcommand
+
+USAGE:
+    cargo ramdisk mount [FLAGS] [OPTIONS]
+
+FLAGS:
+    -c, --copy-to    Copy the contents of the target folder to the ramdisk
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -t, --target <target>    The path to the target folder where compilation output is written [default: ./target]
+```
+
+##### remount
+```
+Remount an existing ramdisk
+
+USAGE:
+    cargo ramdisk remount [OPTIONS]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -t, --target <target>    The path to the target folder where compilation output is written [default: target]
+```
+
+##### unmount
+```
+Unmount an existing ramdisk
+
+USAGE:
+    cargo ramdisk unmount [FLAGS] [OPTIONS]
+
+FLAGS:
+    -c, --copy-back    Copy back the contents of the ramdisk to the target folder
+    -h, --help         Prints help information
+    -V, --version      Prints version information
+
+OPTIONS:
+    -t, --target <target>    The path to the target folder where compilation output is written [default: target]
+```
