@@ -11,6 +11,6 @@ repository = "https://github.com/PauMAVA/cargo-ramdisk"
 
 [dependencies]
 structopt = "0.3"
-sys-mount = "2"
+sys-mount = {version = "2", default-features = false}
 nanoid = "0.4.0"
 carlog = "0.1.0"
