@@ -1,6 +1,5 @@
 extern crate nanoid;
 extern crate structopt;
-extern crate sys_mount;
 #[macro_use]
 extern crate carlog;
 
